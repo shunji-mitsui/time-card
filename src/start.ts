@@ -15,11 +15,14 @@
  */
 
 import { createNewMonthSheet } from './createNewMonthSheet';
-import { formatDateToYYYYMM } from './formatDate';
 
 export function start(slackID: string, time: string | undefined) {
   const date = time ? new Date(time) : new Date();
-  const sheetName = formatDateToYYYYMM(date);
+  const sheetName = Utilities.formatDate(
+    date,
+    SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone(),
+    'yyyyMM'
+  );
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet =
     ss.getSheetByName(sheetName) ?? createNewMonthSheet(ss, sheetName);
