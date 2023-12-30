@@ -15,8 +15,21 @@
  */
 export function start(
   sheet: GoogleAppsScript.Spreadsheet.Sheet,
-  slackID: string
+  slackID: string,
+  time: string | undefined
 ) {
+  const date = time ? new Date(time) : new Date();
+
+  // startコマンドで不正な時刻が指定されたとき
+  if (time && isNaN(date.getTime())) {
+    return ContentService.createTextOutput('正常な日付を入力してください');
+  }
+  const formattedDate = Utilities.formatDate(
+    date,
+    SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone(),
+    'yyyy-MM-dd HH:mm:ss'
+  );
+
   let target_row = 1;
   while (sheet.getRange('A' + target_row).getValue()) {
     if (sheet.getRange('A' + target_row).getValue() === slackID) {
@@ -44,12 +57,7 @@ export function start(
       '退勤されていません。出勤状態を確認してください。'
     );
   }
-  const currentDate = new Date();
-  const formattedDate = Utilities.formatDate(
-    currentDate,
-    SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone(),
-    'yyyy-MM-dd HH:mm:ss'
-  );
+
   sheet.getRange(target_row, target_index).setValue(formattedDate); // A1セルにデータを書き込む（セル範囲を必要に応じて変更してください）
 
   return ContentService.createTextOutput(formattedDate + 'で出勤登録しました');
