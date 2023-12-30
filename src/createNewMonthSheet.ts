@@ -13,14 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-export const createNewMonthSheet = (
+export function createNewMonthSheet(
   ss: GoogleAppsScript.Spreadsheet.Spreadsheet,
   sheetName: string
-) => {
+) {
   const newSheet = ss.insertSheet(sheetName);
   newSheet.getRange('A1').setValue('slackID');
   newSheet.getRange('B1').setValue('氏名');
   newSheet.getRange('C1').setValue('出勤');
   newSheet.getRange('D1').setValue('退勤');
   return newSheet;
-};
+}
