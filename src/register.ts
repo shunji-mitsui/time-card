@@ -13,14 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-export function register(
-  sheet: GoogleAppsScript.Spreadsheet.Sheet,
-  slackID: string,
-  name: string
-) {
+export function register(slackID: string, name: string) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet(); // 現在開いているスプレッドシートを取得
+  const sheet = ss.getSheetByName('登録アカウント一覧'); // 書き込むシートを指定（シート名を変更してください）
+
+  if (!sheet) {
+    return ContentService.createTextOutput(
+      'シートがありません。管理者に問い合わせてください。'
+    );
+  }
+
   if (!name) {
     return ContentService.createTextOutput('名前が適切でありません。');
   }
+
   let cellRow = 1;
   while (sheet.getRange('A' + cellRow).getValue()) {
     if (sheet.getRange('A' + cellRow).getValue() === slackID) {

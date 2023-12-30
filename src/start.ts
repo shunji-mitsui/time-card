@@ -13,52 +13,85 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-export function start(
-  sheet: GoogleAppsScript.Spreadsheet.Sheet,
-  slackID: string,
-  time: string | undefined
-) {
+
+import { createNewMonthSheet } from './createNewMonthSheet';
+import { formatDateToYYYYMM } from './formatDate';
+
+export function start(slackID: string, time: string | undefined) {
   const date = time ? new Date(time) : new Date();
+  const sheetName = formatDateToYYYYMM(date);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet =
+    ss.getSheetByName(sheetName) ?? createNewMonthSheet(ss, sheetName);
 
   // startコマンドで不正な時刻が指定されたとき
   if (time && isNaN(date.getTime())) {
     return ContentService.createTextOutput('正常な日付を入力してください');
   }
-  const formattedDate = Utilities.formatDate(
-    date,
-    SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone(),
-    'yyyy-MM-dd HH:mm:ss'
-  );
 
-  let target_row = 1;
-  while (sheet.getRange('A' + target_row).getValue()) {
-    if (sheet.getRange('A' + target_row).getValue() === slackID) {
+  // slackIDの列を探索
+  let currentRow = 1;
+  while (sheet.getRange(currentRow, 1).getValue()) {
+    if (sheet.getRange(currentRow, 1).getValue() === slackID) {
       break;
     }
-    if (target_row === 100) {
-      break;
-    }
-    target_row += 1;
+    currentRow += 1;
   }
-  if (!sheet.getRange(target_row, 1).getValue() || target_row === 100) {
-    sheet.getRange(1, 10).setValue(target_row);
-    sheet.getRange(1, 10).setValue(slackID);
-    return ContentService.createTextOutput(
-      'アカウントが見つかりませんでした。/registerコマンドで登録してください'
-    );
+  // なかった場合。登録アカウント一覧から探索
+  if (!sheet.getRange(currentRow, 1).getValue()) {
+    const accountListSheet = ss.getSheetByName('登録アカウント一覧');
+    if (!accountListSheet) {
+      return ContentService.createTextOutput(
+        'シートがありません。管理者に問い合わせてください。'
+      );
+    }
+    let accountListCurrentRow = 1;
+    while (accountListSheet.getRange(accountListCurrentRow, 1).getValue()) {
+      if (
+        accountListSheet.getRange(accountListCurrentRow, 1).getValue() ===
+        slackID
+      ) {
+        // アカウント一覧にあったらもとのシートの末尾に追加
+        sheet
+          .getRange(currentRow, 1)
+          .setValue(
+            accountListSheet.getRange(accountListCurrentRow, 1).getValue()
+          );
+        sheet
+          .getRange(currentRow, 2)
+          .setValue(
+            accountListSheet.getRange(accountListCurrentRow, 2).getValue()
+          );
+        break;
+      }
+      accountListCurrentRow += 1;
+    }
+    // アカウント一覧になかった場合
+    if (!accountListSheet.getRange(currentRow, 1).getValue()) {
+      return ContentService.createTextOutput(
+        'アカウントが見つかりませんでした。/registerコマンドで登録してください'
+      );
+    }
   }
 
-  let target_index = 3;
-  while (sheet.getRange(target_row, target_index).getValue()) {
-    target_index += 1;
+  // slackIDの行を探索。出退勤時刻は3列目から
+  let currentIndex = 3;
+  while (sheet.getRange(currentRow, currentIndex).getValue()) {
+    currentIndex += 1;
   }
-  if (target_index % 2 === 0) {
+  // 最後の列(currentIndex-1)が奇数だったら出勤中
+  if (currentIndex % 2 === 0) {
     return ContentService.createTextOutput(
       '退勤されていません。出勤状態を確認してください。'
     );
   }
 
-  sheet.getRange(target_row, target_index).setValue(formattedDate); // A1セルにデータを書き込む（セル範囲を必要に応じて変更してください）
+  const formattedDate = Utilities.formatDate(
+    date,
+    SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone(),
+    'yyyy-MM-dd HH:mm:ss'
+  );
+  sheet.getRange(currentRow, currentIndex).setValue(formattedDate);
 
   return ContentService.createTextOutput(formattedDate + 'で出勤登録しました');
 }
