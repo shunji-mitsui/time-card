@@ -15,6 +15,10 @@
  */
 
 import { createNewMonthSheet } from './createNewMonthSheet';
+import {
+  sendErrorMessageToSlack,
+  sendSuccessMessageToSlack,
+} from './sendMessageToSlack';
 
 export function start(slackID: string, time: string | undefined) {
   const date = time ? new Date(time) : new Date();
@@ -29,7 +33,11 @@ export function start(slackID: string, time: string | undefined) {
 
   // startコマンドで不正な時刻が指定されたとき
   if (time && isNaN(date.getTime())) {
-    return ContentService.createTextOutput('正常な日付を入力してください');
+    sendErrorMessageToSlack(
+      slackID,
+      '入力された日付が不正でした。正常な日付を入力してください。'
+    );
+    return ContentService.createTextOutput();
   }
 
   // slackIDの列を探索
@@ -40,13 +48,15 @@ export function start(slackID: string, time: string | undefined) {
     }
     currentRow += 1;
   }
-  // なかった場合。登録アカウント一覧から探索
+  // なかった場合。登録アカウント一覧から探索https://script.google.com/macros/s/AKfycbwb40iaWBmJR4EWlr90mmj0aXreqL5VmejMnGUSpeqUvwsyroACO_fobhqk8GS_mEMBzg/exec
   if (!sheet.getRange(currentRow, 1).getValue()) {
     const accountListSheet = ss.getSheetByName('登録アカウント一覧');
     if (!accountListSheet) {
-      return ContentService.createTextOutput(
+      sendErrorMessageToSlack(
+        slackID,
         'シートがありません。管理者に問い合わせてください。'
       );
+      return ContentService.createTextOutput();
     }
     let accountListCurrentRow = 1;
     while (accountListSheet.getRange(accountListCurrentRow, 1).getValue()) {
@@ -71,9 +81,11 @@ export function start(slackID: string, time: string | undefined) {
     }
     // アカウント一覧になかった場合
     if (!accountListSheet.getRange(currentRow, 1).getValue()) {
-      return ContentService.createTextOutput(
-        'アカウントが見つかりませんでした。/registerコマンドで登録してください'
+      sendErrorMessageToSlack(
+        slackID,
+        'アカウントが見つかりませんでした。/registerコマンドで登録してください。\nアカウントを登録している場合は管理者に問い合わせてください。'
       );
+      return ContentService.createTextOutput();
     }
   }
 
@@ -84,9 +96,11 @@ export function start(slackID: string, time: string | undefined) {
   }
   // 最後の列(currentIndex-1)が奇数だったら出勤中
   if (currentIndex % 2 === 0) {
-    return ContentService.createTextOutput(
+    sendErrorMessageToSlack(
+      slackID,
       '退勤されていません。出勤状態を確認してください。'
     );
+    return ContentService.createTextOutput();
   }
 
   const formattedDate = Utilities.formatDate(
@@ -96,5 +110,6 @@ export function start(slackID: string, time: string | undefined) {
   );
   sheet.getRange(currentRow, currentIndex).setValue(formattedDate);
 
-  return ContentService.createTextOutput(formattedDate + 'で出勤登録しました');
+  sendSuccessMessageToSlack(slackID, '出勤しました');
+  return ContentService.createTextOutput();
 }

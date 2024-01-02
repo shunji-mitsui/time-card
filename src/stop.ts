@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 import { createNewMonthSheet } from './createNewMonthSheet';
+import {
+  sendErrorMessageToSlack,
+  sendSuccessMessageToSlack,
+} from './sendMessageToSlack';
 
 export function stop(slackID: string, time: string | undefined) {
   // 登録する時刻を取得
@@ -28,8 +32,13 @@ export function stop(slackID: string, time: string | undefined) {
     ss.getSheetByName(sheetName) ?? createNewMonthSheet(ss, sheetName);
 
   // stopコマンドで不正な時刻が指定されたとき
+  // TODO : 時間が一個前の出勤時刻よりも過去の場合のハンドリングをする
   if (time && isNaN(date.getTime())) {
-    return ContentService.createTextOutput('正常な日付を入力してください');
+    sendErrorMessageToSlack(
+      slackID,
+      '入力された日付が不正でした。正常な日付を入力してください。'
+    );
+    return ContentService.createTextOutput();
   }
 
   // slackID検索
@@ -45,9 +54,11 @@ export function stop(slackID: string, time: string | undefined) {
   if (!sheet.getRange(currentRow, 1).getValue()) {
     const accountListSheet = ss.getSheetByName('登録アカウント一覧');
     if (!accountListSheet) {
-      return ContentService.createTextOutput(
+      sendErrorMessageToSlack(
+        slackID,
         'シートがありません。管理者に問い合わせてください。'
       );
+      return ContentService.createTextOutput();
     }
     let accountListCurrentRow = 1;
     while (accountListSheet.getRange(accountListCurrentRow, 1).getValue()) {
@@ -72,9 +83,11 @@ export function stop(slackID: string, time: string | undefined) {
     }
     // アカウント一覧になかった場合
     if (!accountListSheet.getRange(currentRow, 1).getValue()) {
-      return ContentService.createTextOutput(
-        'アカウントが見つかりませんでした。/registerコマンドで登録してください'
+      sendErrorMessageToSlack(
+        slackID,
+        'アカウントが見つかりませんでした。/registerコマンドで登録してください。\n アカウントを登録してあるばあいは管理者に問い合わせて下さい。'
       );
+      return ContentService.createTextOutput();
     }
   }
 
@@ -86,9 +99,11 @@ export function stop(slackID: string, time: string | undefined) {
 
   // 最後の列(currentIndex-1)が偶数だったら退勤中
   if (currentIndex % 2 === 1) {
-    return ContentService.createTextOutput(
+    sendErrorMessageToSlack(
+      slackID,
       '出勤されていません。出勤状態を確認してください。'
     );
+    return ContentService.createTextOutput();
   }
 
   const formattedDate = Utilities.formatDate(
@@ -99,5 +114,6 @@ export function stop(slackID: string, time: string | undefined) {
   // slackIDが登録されていて、退勤状態のときのみ出勤登録できる
   sheet.getRange(currentRow, currentIndex).setValue(formattedDate);
 
-  return ContentService.createTextOutput(formattedDate + 'で退勤登録しました');
+  sendSuccessMessageToSlack(slackID, '退勤しました');
+  return ContentService.createTextOutput();
 }

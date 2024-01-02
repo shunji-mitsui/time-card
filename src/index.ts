@@ -15,6 +15,7 @@
  */
 
 import { register } from './register';
+import { sendErrorMessageToSlack } from './sendMessageToSlack';
 import { start } from './start';
 import { stop } from './stop';
 
@@ -31,8 +32,10 @@ function doPost(e: GoogleAppsScript.Events.DoPost) {
     case '/register':
       return register(slackID, text);
     default:
-      return ContentService.createTextOutput(
+      sendErrorMessageToSlack(
+        slackID,
         '無効なコマンドです。管理者に問い合わせてください'
       );
+      return ContentService.createTextOutput();
   }
 }

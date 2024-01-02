@@ -1,3 +1,8 @@
+import {
+  sendErrorMessageToSlack,
+  sendSuccessMessageToSlack,
+} from './sendMessageToSlack';
+
 /**
  * Copyright 2023 Google LLC
  *
@@ -18,13 +23,19 @@ export function register(slackID: string, name: string) {
   const sheet = ss.getSheetByName('登録アカウント一覧'); // 書き込むシートを指定（シート名を変更してください）
 
   if (!sheet) {
-    return ContentService.createTextOutput(
+    sendErrorMessageToSlack(
+      slackID,
       'シートがありません。管理者に問い合わせてください。'
     );
+    return ContentService.createTextOutput();
   }
 
   if (!name) {
-    return ContentService.createTextOutput('名前が適切でありません。');
+    sendErrorMessageToSlack(
+      slackID,
+      '名前の入力が不正です。正しく入力してください。'
+    );
+    return ContentService.createTextOutput();
   }
 
   let currentRow = 1;
@@ -32,13 +43,16 @@ export function register(slackID: string, name: string) {
     if (sheet.getRange('A' + currentRow).getValue() === slackID) {
       const prevName = sheet.getRange('B' + currentRow).getValue();
       sheet.getRange('B' + currentRow).setValue(name);
-      return ContentService.createTextOutput(
-        '表示名を' + prevName + 'から' + name + 'に変更しました'
+      sendSuccessMessageToSlack(
+        slackID,
+        `表示名を${prevName}から${name}に変更しました`
       );
+      return ContentService.createTextOutput();
     }
     currentRow += 1;
   }
   sheet.getRange('A' + currentRow).setValue(slackID);
   sheet.getRange('B' + currentRow).setValue(name);
-  return ContentService.createTextOutput(name + 'として新規登録しました。');
+  sendSuccessMessageToSlack(slackID, `${name}として新規登録しました。`);
+  return ContentService.createTextOutput();
 }
