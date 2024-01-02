@@ -1,7 +1,7 @@
-import {
-  sendErrorMessageToSlack,
-  sendSuccessMessageToSlack,
-} from './sendMessageToSlack';
+import { getSlackIdRow } from './utils/getSlackIdIndex';
+import { sendSuccessMessageToSlack } from './utils/sendMessageToSlack';
+import { getSheetRange } from './utils/getSheetRange';
+import { setValueToCell } from './utils/setValueToCell';
 
 /**
  * Copyright 2023 Google LLC
@@ -19,40 +19,27 @@ import {
  * limitations under the License.
  */
 export function register(slackID: string, name: string) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet(); // 現在開いているスプレッドシートを取得
-  const sheet = ss.getSheetByName('登録アカウント一覧'); // 書き込むシートを指定（シート名を変更してください）
-
-  if (!sheet) {
-    sendErrorMessageToSlack(
-      slackID,
-      'シートがありません。管理者に問い合わせてください。'
-    );
-    return ContentService.createTextOutput();
-  }
-
   if (!name) {
-    sendErrorMessageToSlack(
-      slackID,
-      '名前の入力が不正です。正しく入力してください。'
-    );
-    return ContentService.createTextOutput();
+    throw new Error('名前の入力が不正です。正しく入力してください。');
   }
 
-  let currentRow = 1;
-  while (sheet.getRange('A' + currentRow).getValue()) {
-    if (sheet.getRange('A' + currentRow).getValue() === slackID) {
-      const prevName = sheet.getRange('B' + currentRow).getValue();
-      sheet.getRange('B' + currentRow).setValue(name);
-      sendSuccessMessageToSlack(
-        slackID,
-        `表示名を${prevName}から${name}に変更しました`
-      );
-      return ContentService.createTextOutput();
-    }
-    currentRow += 1;
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetRange = getSheetRange(ss, '登録アカウント一覧');
+
+  const index = getSlackIdRow(sheetRange, slackID);
+
+  if (index === sheetRange.length) {
+    setValueToCell(ss, '登録アカウント一覧', index, 0, slackID);
+    setValueToCell(ss, '登録アカウント一覧', index, 1, name);
+    sendSuccessMessageToSlack(slackID, `${name}として新規登録しました。`);
+    return;
   }
-  sheet.getRange('A' + currentRow).setValue(slackID);
-  sheet.getRange('B' + currentRow).setValue(name);
-  sendSuccessMessageToSlack(slackID, `${name}として新規登録しました。`);
-  return ContentService.createTextOutput();
+  sheetRange[index][0];
+
+  const prevName = sheetRange[index][1];
+  setValueToCell(ss, '登録アカウント一覧', index, 1, name);
+  sendSuccessMessageToSlack(
+    slackID,
+    `表示名を${prevName}から${name}に変更しました`
+  );
 }
