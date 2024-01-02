@@ -15,7 +15,7 @@
  */
 function sendMessageToSlack(userId: string, message: string, color: string) {
   const slackWebhookURL =
-    'https://hooks.slack.com/services/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';
+    'https://hooks.slack.com/services/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';
   const payload = {
     attachments: [
       {

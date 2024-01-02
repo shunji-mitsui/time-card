@@ -18,15 +18,13 @@ import {
   sendErrorMessageToSlack,
   sendSuccessMessageToSlack,
 } from './sendMessageToSlack';
+import { formatDate } from './utils/formatDate';
 
 export function stop(slackID: string, time: string | undefined) {
   // 登録する時刻を取得
   const date = time ? new Date(time) : new Date();
-  const sheetName = Utilities.formatDate(
-    date,
-    SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone(),
-    'yyyyMM'
-  );
+
+  const sheetName = formatDate(date, 'yyyyMM');
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet =
     ss.getSheetByName(sheetName) ?? createNewMonthSheet(ss, sheetName);
@@ -99,6 +97,40 @@ export function stop(slackID: string, time: string | undefined) {
 
   // 最後の列(currentIndex-1)が偶数だったら退勤中
   if (currentIndex % 2 === 1) {
+    if (currentIndex === 3) {
+      const previousMonth = new Date(date);
+      previousMonth.setMonth(previousMonth.getMonth() - 1);
+      const previousMonthSheetName = formatDate(previousMonth, 'yyyyMM');
+      const previousMonthSheet = ss.getSheetByName(previousMonthSheetName);
+      const lastColumn = previousMonthSheet?.getLastColumn() ?? 1;
+      const lastRow = previousMonthSheet?.getLastRow() ?? 1;
+      const range = previousMonthSheet
+        ?.getRange(1, 1, lastRow, lastColumn)
+        .getValues() ?? [[]];
+      const row = range.find(row => row[0] === slackID);
+      const rowNumber = range.findIndex(row => row[0] === slackID);
+      const lastCellIndex = row?.filter(cell => !!cell)?.length ?? -43;
+      if (!lastCellIndex) {
+        return ContentService.createTextOutput(row?.join(',') ?? '');
+      }
+      if (lastCellIndex % 2 === 1) {
+        const endOfPreviousDate = new Date(date);
+        endOfPreviousDate.setDate(date.getDate() - 1);
+        endOfPreviousDate.setHours(23, 59, 59, 999);
+        previousMonthSheet
+          ?.getRange(rowNumber + 1, lastCellIndex + 1)
+          .setValue(formatDate(endOfPreviousDate, 'yyyy-MM-dd HH:mm:ss'));
+      }
+      const startOfDate = new Date(date);
+      startOfDate.setHours(0, 0, 0, 0);
+      sheet
+        .getRange(currentRow, currentIndex)
+        .setValue(formatDate(startOfDate, 'yyyy-MM-dd HH:mm:ss'));
+      const formattedDate = formatDate(date, 'yyyy-MM-dd HH:mm:ss');
+      sheet.getRange(currentRow, currentIndex + 1).setValue(formattedDate);
+
+      return ContentService.createTextOutput(rowNumber as unknown as string);
+    }
     sendErrorMessageToSlack(
       slackID,
       '出勤されていません。出勤状態を確認してください。'
@@ -106,14 +138,30 @@ export function stop(slackID: string, time: string | undefined) {
     return ContentService.createTextOutput();
   }
 
-  const formattedDate = Utilities.formatDate(
-    date,
-    SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone(),
-    'yyyy-MM-dd HH:mm:ss'
+  const formattedDate = formatDate(date, 'yyyy-MM-dd HH:mm:ss');
+  const prevCell = new Date(
+    sheet.getRange(currentRow, currentIndex - 1).getValue()
   );
+
+  if (prevCell.getDate() !== date.getDate()) {
+    const endOfPreviousDate = new Date(date);
+    endOfPreviousDate.setDate(date.getDate() - 1);
+    endOfPreviousDate.setHours(23, 59, 59, 999);
+
+    const startOfCurrentDate = new Date(date);
+    startOfCurrentDate.setHours(0, 0, 0, 0);
+
+    sheet
+      .getRange(currentRow, currentIndex)
+      .setValue(formatDate(endOfPreviousDate, 'yyyy-MM-dd HH:mm:ss'));
+    sheet
+      .getRange(currentRow, currentIndex + 1)
+      .setValue(formatDate(startOfCurrentDate, 'yyyy-MM-dd HH:mm:ss'));
+    sheet.getRange(currentRow, currentIndex + 2).setValue(formattedDate);
+    return ContentService.createTextOutput('date に入っているよ');
+  }
   // slackIDが登録されていて、退勤状態のときのみ出勤登録できる
   sheet.getRange(currentRow, currentIndex).setValue(formattedDate);
-
   sendSuccessMessageToSlack(slackID, '退勤しました');
   return ContentService.createTextOutput();
 }

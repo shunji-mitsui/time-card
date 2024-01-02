@@ -19,14 +19,11 @@ import {
   sendErrorMessageToSlack,
   sendSuccessMessageToSlack,
 } from './sendMessageToSlack';
+import { formatDate } from './utils/formatDate';
 
 export function start(slackID: string, time: string | undefined) {
   const date = time ? new Date(time) : new Date();
-  const sheetName = Utilities.formatDate(
-    date,
-    SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone(),
-    'yyyyMM'
-  );
+  const sheetName = formatDate(date, 'yyyyMM');
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet =
     ss.getSheetByName(sheetName) ?? createNewMonthSheet(ss, sheetName);
@@ -103,11 +100,7 @@ export function start(slackID: string, time: string | undefined) {
     return ContentService.createTextOutput();
   }
 
-  const formattedDate = Utilities.formatDate(
-    date,
-    SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone(),
-    'yyyy-MM-dd HH:mm:ss'
-  );
+  const formattedDate = formatDate(date, 'yyyy-MM-dd HH:mm:ss');
   sheet.getRange(currentRow, currentIndex).setValue(formattedDate);
 
   sendSuccessMessageToSlack(slackID, '出勤しました');
