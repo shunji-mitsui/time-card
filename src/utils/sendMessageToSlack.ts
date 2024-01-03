@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 function sendMessageToSlack(userId: string, message: string, color: string) {
-  const slackWebhookURL =
-    'https://hooks.slack.com/services/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';
+  const slackWebhookURL = process.env.WEBHOOK_URL as string;
+  if (!slackWebhookURL) {
+    throw new Error('webhook urlが設定されていません。');
+  }
   const payload = {
     attachments: [
       {
